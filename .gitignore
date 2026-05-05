@@ -1,0 +1,13 @@
+node_modules/
+.env
+*.tsbuildinfo
+coverage/
+.next/
+build/
+*.swp
+npm-debug.log*
+dist/
+*.js.map
+*.swo
+.env.local
+.cache/
