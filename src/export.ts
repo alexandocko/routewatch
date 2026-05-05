@@ -10,12 +10,15 @@ export function toJson(records: RouteRecord[]): string {
 /**
  * Serializes route records to CSV format.
  * Columns: method, path, statusCode, duration, timestamp
+ *
+ * Fields containing commas or quotes are wrapped in double quotes.
  */
 export function toCsv(records: RouteRecord[]): string {
   const header = 'method,path,statusCode,duration,timestamp';
   const rows = records.map((r) => {
     const ts = new Date(r.timestamp).toISOString();
-    return `${r.method},${r.path},${r.statusCode},${r.duration},${ts}`;
+    const path = r.path.includes(',') ? `"${r.path}"` : r.path;
+    return `${r.method},${path},${r.statusCode},${r.duration},${ts}`;
   });
   return [header, ...rows].join('\n');
 }
