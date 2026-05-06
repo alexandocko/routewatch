@@ -58,6 +58,19 @@ describe('dashboard', () => {
       const stats = computeStats();
       expect(stats[0].count).toBeGreaterThanOrEqual(stats[1].count);
     });
+
+    it('returns unique route entries (no duplicates)', async () => {
+      await request(app).get('/api/users');
+      await request(app).get('/api/users');
+      await request(app).get('/api/users');
+
+      const stats = computeStats();
+      const getRoutes = stats.filter((s) => s.method === 'GET' && s.path === '/api/users');
+
+      // Should be aggregated into a single entry, not one per request
+      expect(getRoutes).toHaveLength(1);
+      expect(getRoutes[0].count).toBe(3);
+    });
   });
 
   describe('GET /routewatch', () => {
@@ -83,6 +96,12 @@ describe('dashboard', () => {
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body[0]).toHaveProperty('method');
       expect(res.body[0]).toHaveProperty('count');
+    });
+
+    it('returns empty array when no requests recorded', async () => {
+      const res = await request(app).get('/routewatch/json');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
     });
   });
 });
