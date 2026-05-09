@@ -4,16 +4,16 @@ import {
   listBreadcrumbs,
   deleteBreadcrumb,
   clearBreadcrumbs,
-} from './breadcrumb';
-import { RouteRecord } from './types';
+  BreadcrumbInput,
+} from "./breadcrumb";
 
-function makeRecord(overrides: Partial<RouteRecord> = {}): RouteRecord {
+function makeRecord(overrides: Partial<BreadcrumbInput> = {}): BreadcrumbInput {
   return {
-    method: 'GET',
-    path: '/api/test',
+    sessionId: "session-1",
+    method: "GET",
+    path: "/api/test",
     statusCode: 200,
     duration: 42,
-    timestamp: Date.now(),
     ...overrides,
   };
 }
@@ -22,60 +22,69 @@ beforeEach(() => {
   clearBreadcrumbs();
 });
 
-describe('recordBreadcrumb', () => {
-  it('creates a new breadcrumb for a new session', () => {
-    recordBreadcrumb('sess-1', makeRecord());
-    const result = getBreadcrumbBySession('sess-1');
-    expect(result).toBeDefined();
-    expect(result!.sessionId).toBe('sess-1');
-    expect(result!.steps).toHaveLength(1);
+describe("recordBreadcrumb", () => {
+  it("stores a breadcrumb and returns it with id and timestamp", () => {
+    const entry = recordBreadcrumb(makeRecord());
+    expect(entry.id).toMatch(/^bc-/);
+    expect(entry.timestamp).toBeLessThanOrEqual(Date.now());
+    expect(entry.sessionId).toBe("session-1");
   });
 
-  it('appends steps for an existing session', () => {
-    recordBreadcrumb('sess-1', makeRecord({ path: '/a' }));
-    recordBreadcrumb('sess-1', makeRecord({ path: '/b' }));
-    const result = getBreadcrumbBySession('sess-1');
-    expect(result!.steps).toHaveLength(2);
-    expect(result!.steps[0].path).toBe('/a');
-    expect(result!.steps[1].path).toBe('/b');
+  it("increments id counter across multiple calls", () => {
+    const a = recordBreadcrumb(makeRecord());
+    const b = recordBreadcrumb(makeRecord());
+    expect(a.id).not.toBe(b.id);
   });
 
-  it('keeps separate breadcrumbs for different sessions', () => {
-    recordBreadcrumb('sess-1', makeRecord({ path: '/x' }));
-    recordBreadcrumb('sess-2', makeRecord({ path: '/y' }));
+  it("stores optional meta field", () => {
+    const entry = recordBreadcrumb(makeRecord({ meta: { user: "alice" } }));
+    expect(entry.meta).toEqual({ user: "alice" });
+  });
+});
+
+describe("getBreadcrumbBySession", () => {
+  it("returns only breadcrumbs for the given session", () => {
+    recordBreadcrumb(makeRecord({ sessionId: "s1" }));
+    recordBreadcrumb(makeRecord({ sessionId: "s2" }));
+    recordBreadcrumb(makeRecord({ sessionId: "s1", path: "/api/other" }));
+    const result = getBreadcrumbBySession("s1");
+    expect(result).toHaveLength(2);
+    expect(result.every((r) => r.sessionId === "s1")).toBe(true);
+  });
+
+  it("returns empty array for unknown session", () => {
+    expect(getBreadcrumbBySession("nope")).toEqual([]);
+  });
+});
+
+describe("listBreadcrumbs", () => {
+  it("returns all stored breadcrumbs", () => {
+    recordBreadcrumb(makeRecord({ sessionId: "a" }));
+    recordBreadcrumb(makeRecord({ sessionId: "b" }));
     expect(listBreadcrumbs()).toHaveLength(2);
   });
-});
 
-describe('getBreadcrumbBySession', () => {
-  it('returns undefined for unknown session', () => {
-    expect(getBreadcrumbBySession('unknown')).toBeUndefined();
-  });
-
-  it('returns the correct breadcrumb', () => {
-    recordBreadcrumb('sess-abc', makeRecord({ statusCode: 404 }));
-    const result = getBreadcrumbBySession('sess-abc');
-    expect(result!.steps[0].statusCode).toBe(404);
+  it("returns a copy, not the internal store", () => {
+    const list = listBreadcrumbs();
+    list.push({} as any);
+    expect(listBreadcrumbs()).toHaveLength(0);
   });
 });
 
-describe('deleteBreadcrumb', () => {
-  it('removes a breadcrumb by sessionId', () => {
-    recordBreadcrumb('sess-del', makeRecord());
-    const removed = deleteBreadcrumb('sess-del');
-    expect(removed).toBe(true);
-    expect(getBreadcrumbBySession('sess-del')).toBeUndefined();
-  });
-
-  it('returns false when session does not exist', () => {
-    expect(deleteBreadcrumb('nonexistent')).toBe(false);
+describe("deleteBreadcrumb", () => {
+  it("removes all breadcrumbs for a session", () => {
+    recordBreadcrumb(makeRecord({ sessionId: "del" }));
+    recordBreadcrumb(makeRecord({ sessionId: "keep" }));
+    deleteBreadcrumb("del");
+    expect(getBreadcrumbBySession("del")).toHaveLength(0);
+    expect(getBreadcrumbBySession("keep")).toHaveLength(1);
   });
 });
 
-describe('clearBreadcrumbs', () => {
-  it('removes all breadcrumbs', () => {
-    recordBreadcrumb('s1', makeRecord());
-    recordBreadcrumb('s2', makeRecord());
+describe("clearBreadcrumbs", () => {
+  it("removes all breadcrumbs", () => {
+    recordBreadcrumb(makeRecord());
+    recordBreadcrumb(makeRecord());
     clearBreadcrumbs();
     expect(listBreadcrumbs()).toHaveLength(0);
   });
