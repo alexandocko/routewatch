@@ -48,6 +48,13 @@ describe('GET /tags/grouped', () => {
     expect(res.body.groups).toHaveProperty('readonly');
     expect(res.body.groups).toHaveProperty('untagged');
   });
+
+  it('returns an empty groups object when no records exist', async () => {
+    const app = buildApp();
+    const res = await request(app).get('/tags/grouped');
+    expect(res.status).toBe(200);
+    expect(res.body.groups).toEqual({});
+  });
 });
 
 describe('GET /tags/:tag', () => {
