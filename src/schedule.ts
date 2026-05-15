@@ -64,3 +64,20 @@ export function matchSchedules(records: RouteRecord[]): ScheduleEntry[] {
   const routeSet = new Set(records.map((r) => `${r.method.toUpperCase()}:${r.path}`));
   return listSchedules().filter((s) => routeSet.has(`${s.method}:${s.route}`));
 }
+
+/**
+ * Updates mutable fields of an existing schedule entry.
+ * Returns the updated entry, or undefined if no schedule with the given id exists.
+ */
+export function updateSchedule(
+  id: string,
+  updates: Partial<Pick<ScheduleEntry, 'label' | 'cronExpression' | 'route' | 'method'>>
+): ScheduleEntry | undefined {
+  const entry = schedules.get(id);
+  if (!entry) return undefined;
+  if (updates.label !== undefined) entry.label = updates.label;
+  if (updates.cronExpression !== undefined) entry.cronExpression = updates.cronExpression;
+  if (updates.route !== undefined) entry.route = updates.route;
+  if (updates.method !== undefined) entry.method = updates.method.toUpperCase();
+  return entry;
+}
